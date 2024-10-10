@@ -20,6 +20,9 @@ const corsOptions = {
     "http://localhost:5173",
     "http://localhost:4173",
     "https://bw2nj1xt-5173.asse.devtunnels.ms",
+    "alobro.my.id",
+    "http://alobro.my.id",
+
   ],
   optionsSuccessStatus: 200,
   credentials: true

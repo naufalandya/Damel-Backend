@@ -11,52 +11,64 @@ export interface CustomRequest extends Request {
 }
 
 export const createPostController = async (req: Request, res: Response) => {
-    const { text, tags, category } = req.body;
-    const id = (req as any).user?.id;
-    const image_link = req.file;
+  const { text, tags, category } = req.body;
+  const id = (req as any).user?.id;
+  const image_link = req.file;
 
-    console.log(image_link)
-  
-    if (!id) {
+  if (!id) {
       return res.status(400).json({ error: 'Invalid token' });
-    }
-  
-    if (!text || !tags || !category) {
-      return res.status(400).json({ error: 'Text, category, and tags are required' });
-    }
-  
-    if (category !== 'LEARN' && category !== 'SPEECH') {
-      return res.status(400).json({ error: 'Category must be "LEARN" or "SPEECH"' });
-    }
-  
-    let fileUrl = 'aa';
-  
-    if (image_link) {
-      try {
-        const fileBase64 = image_link.buffer.toString("base64");
-        const response = await imagekit.upload({
-          fileName: Date.now() + path.extname(image_link.originalname),
-          file: fileBase64,
-        });
-        console.log('wow', response)
-  
-        fileUrl = response.url;
-      } catch (error) {
-        console.log('Error uploading file to ImageKit:', error);
-        return res.status(500).json({ error: 'An error occurred while uploading the file' });
-      }
-    }
+  }
 
-    console.log(fileUrl)
-  
-    try {
+  if (!text || !tags || !category) {
+      return res.status(400).json({ error: 'Text, category, and tags are required' });
+  }
+
+  if (category !== 'LEARN' && category !== 'SPEECH') {
+      return res.status(400).json({ error: 'Category must be "LEARN" or "SPEECH"' });
+  }
+
+  let fileUrl = '';
+
+  // Validate and upload image only if provided
+  if (image_link) {
+      try {
+          const response = await fetch('http://localhost:5000/predict/image', {
+              method: 'POST',
+              body: image_link.buffer,
+              headers: {
+                  'Content-Type': 'application/octet-stream', // Adjust as necessary
+              },
+          });
+
+          const result = await response.json();
+
+          if (result.message !== 'success') {
+              return res.status(400).json({ error: "image does not meet our policy"}); // Handle image validation failure
+          }
+
+          // If the image is valid, proceed with the upload to ImageKit
+          const fileBase64 = image_link.buffer.toString("base64");
+          const uploadResponse = await imagekit.upload({
+              fileName: `${Date.now()}${path.extname(image_link.originalname)}`,
+              file: fileBase64,
+          });
+          console.log('Image uploaded:', uploadResponse);
+          fileUrl = uploadResponse.url;
+      } catch (error) {
+          console.log('Error processing image:', error);
+          return res.status(500).json({ error: 'An error occurred while processing the image' });
+      }
+  }
+
+  // Create the post
+  try {
       const newPost = await user.createPost(id, text, tags, fileUrl, category);
       return res.status(201).json(newPost);
-    } catch (error) {
+  } catch (error) {
       console.log('Error creating post:', error);
       return res.status(500).json({ error: 'An error occurred while creating the post' });
-    }
-  };
+  }
+};
 
 export const getPostController = async (req: Request, res: Response) => {
     const id = (req as UserRequest).user?.id;
